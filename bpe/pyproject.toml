@@ -1,0 +1,11 @@
+[project]
+name = "bpe-benchmark"
+version = "0.1.0"
+description = "Benchmark different BPE training implementations"
+requires-python = ">=3.10"
+dependencies = [
+    "regex",
+]
+
+[tool.setuptools]
+packages = ["implementations"]
