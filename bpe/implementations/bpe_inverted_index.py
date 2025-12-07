@@ -70,6 +70,11 @@ def find_most_frequent_pair(
     return max(pair_counts, key=lambda pair: (pair_counts[pair], pair[0], pair[1]))
 
 
+def get_word_pairs(word: list[bytes]) -> list[tuple[bytes, bytes]]:
+    """Get all adjacent pairs in a word."""
+    return [(word[i], word[i + 1]) for i in range(len(word) - 1)]
+
+
 def apply_merge(
     words: Words,
     word_freq: WordFreq,
@@ -77,7 +82,7 @@ def apply_merge(
     pair_counts: PairCounts,
     pair_to_words: PairToWords,
 ) -> None:
-    """Apply merge and incrementally update pair_counts and pair_to_words."""
+    """Apply merge and update pair_counts and pair_to_words by comparing old/new pairs."""
     merged = pair[0] + pair[1]
     affected_word_ids = pair_to_words.pop(pair, set())
     del pair_counts[pair]
@@ -85,52 +90,34 @@ def apply_merge(
     for word_id in affected_word_ids:
         word = words[word_id]
         freq = word_freq[word_id]
+
+        old_pairs = get_word_pairs(word)
+
         i = 0
         while i < len(word) - 1:
             if word[i] == pair[0] and word[i + 1] == pair[1]:
-                # Decrement count for pair to the left: (word[i-1], pair[0])
-                if i > 0:
-                    left_pair = (word[i - 1], pair[0])
-                    if left_pair in pair_counts:
-                        pair_counts[left_pair] -= freq
-                        if pair_counts[left_pair] == 0:
-                            del pair_counts[left_pair]
-                        pair_to_words[left_pair].discard(word_id)
-                        if not pair_to_words[left_pair]:
-                            del pair_to_words[left_pair]
-
-                # Decrement count for pair to the right: (pair[1], word[i+2])
-                if i + 2 < len(word):
-                    right_pair = (pair[1], word[i + 2])
-                    if right_pair in pair_counts:
-                        pair_counts[right_pair] -= freq
-                        if pair_counts[right_pair] == 0:
-                            del pair_counts[right_pair]
-                        pair_to_words[right_pair].discard(word_id)
-                        if not pair_to_words[right_pair]:
-                            del pair_to_words[right_pair]
-
-                # Apply the merge
                 word[i] = merged
                 del word[i + 1]
-
-                # Increment count for new left pair: (word[i-1], merged)
-                if i > 0:
-                    new_left_pair = (word[i - 1], merged)
-                    pair_counts[new_left_pair] = pair_counts.get(new_left_pair, 0) + freq
-                    if new_left_pair not in pair_to_words:
-                        pair_to_words[new_left_pair] = set()
-                    pair_to_words[new_left_pair].add(word_id)
-
-                # Increment count for new right pair: (merged, word[i+1])
-                if i + 1 < len(word):
-                    new_right_pair = (merged, word[i + 1])
-                    pair_counts[new_right_pair] = pair_counts.get(new_right_pair, 0) + freq
-                    if new_right_pair not in pair_to_words:
-                        pair_to_words[new_right_pair] = set()
-                    pair_to_words[new_right_pair].add(word_id)
             else:
                 i += 1
+
+        new_pairs = get_word_pairs(word)
+
+        for p in old_pairs:
+            if p == pair:
+                continue
+            pair_counts[p] -= freq
+            if pair_counts[p] == 0:
+                del pair_counts[p]
+                pair_to_words.pop(p, None)
+            else:
+                pair_to_words[p].discard(word_id)
+
+        for p in new_pairs:
+            pair_counts[p] = pair_counts.get(p, 0) + freq
+            if p not in pair_to_words:
+                pair_to_words[p] = set()
+            pair_to_words[p].add(word_id)
 
 
 def train_bpe(
